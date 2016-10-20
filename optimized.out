@@ -1,0 +1,6 @@
+READ b
+LOADI r6 #4
+LOADI r7 #1
+ADD r8 r6 r7
+STORE d r8
+WRITE d
