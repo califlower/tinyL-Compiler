@@ -11,6 +11,12 @@
 #include "InstrUtils.h"
 #include "Utils.h"
 
+static Instruction *head;
+
+/**********
+	Recursively traces out a path through the linked list starting at a WRITE node
+	If the next node modifies some variable used by the WRITE node it will be marked critical
+**********/
 
 void trace(Instruction *ptr, int field)
 {
@@ -21,6 +27,7 @@ void trace(Instruction *ptr, int field)
 		
 		if(ptr -> opcode == 1)
 			return;
+		
 		else if (ptr -> prev)
 		{
 			trace(ptr -> prev, ptr -> field2);
@@ -33,24 +40,56 @@ void trace(Instruction *ptr, int field)
 	}
 
 }
+/**********
+	Clean up linked list of any non critical code
+	Simply frees the nodes and removes them from the list
+**********/
 
-int main()
+void clean(Instruction *ptr)
 {
-	Instruction *head;
-	Instruction *ptr;
-
-	head = ReadInstructionList(stdin);
-	ptr = head;
-	
-	if (!head) 
-	{
-		WARNING("No instructions\n");
-		exit(EXIT_FAILURE);
-	}
-	
 	while (ptr)
 	{
-		if (ptr -> opcode == 7 || ptr -> opcode == 6)
+		if (ptr -> prev == NULL && ptr -> critical == 'n')
+		{
+			ptr = ptr -> next;
+			head = ptr;
+			free(ptr -> prev);
+			ptr -> prev = NULL;
+		}
+		else if (ptr -> critical == 'n')
+		{
+			Instruction *t = ptr;
+			ptr = ptr -> prev;
+			ptr -> next = t -> next;
+			ptr -> next -> prev = ptr;
+			free(t);
+			ptr = ptr -> next;
+		}
+		else
+		{
+			ptr = ptr -> next;
+		}
+			
+		
+	}	
+}
+/**********
+	Inits all with a char value of 'y' or 'n' marking critical and non critical code
+	WRITE, and READ are marked critical automatically
+	Calls trace on any WRITE node fixing any case that has more than 1 write output
+	instead of automatically assuming that there is only 1 write at the end
+**********/
+
+void init(Instruction *ptr)
+{
+	while (ptr)
+	{
+		if (ptr -> opcode == 7 && ptr -> prev)
+		{
+			ptr -> critical = 'y';
+			trace(ptr -> prev, ptr-> field1);
+		}
+		else if (ptr -> opcode == 6)
 			ptr -> critical = 'y';
 		else
 			ptr -> critical = 'n';
@@ -60,33 +99,21 @@ int main()
 		else
 			break;
 	}
+}
+
+
+int main()
+{
+	head = ReadInstructionList(stdin);
 	
-	
-	trace(ptr -> prev, ptr-> field1);
-	
-	ptr = head;
-	
-	while (ptr)
+	if (!head) 
 	{
-		if (ptr-> critical=='n')
-		{
-			if (ptr == head)
-			{
-				ptr = ptr -> next;
-				head = ptr;
-				free(ptr -> prev);
-			}
-			else
-			{
-				Instruction *t = ptr;
-				ptr = ptr -> prev;
-				ptr -> next = t -> next;
-				ptr -> next -> prev = ptr;
-				free(t);
-			}
-		}
-		ptr = ptr -> next;
+		WARNING("No instructions\n");
+		exit(EXIT_FAILURE);
 	}
+	
+	init(head);	
+	clean(head);
 	
 	if (head) 
 	{
